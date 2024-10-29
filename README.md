@@ -10,5 +10,5 @@ The script navigates the input directory tree, identifies the file and its masks
 The input scan should be placed in a subdirectory along with a foler including its bone masks. This subdirectory should be inside of a directory named input/ 
 
 The naming convention should be:
-Name of CT scan in format CT_{filename}.nii.gz
-Name of segmentation folder in format CT_{filename}_segmentations/
+-Name of CT scan in format CT_{filename}.nii.gz
+-Name of segmentation folder in format CT_{filename}_segmentations/
