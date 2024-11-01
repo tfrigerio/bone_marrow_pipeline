@@ -1,7 +1,6 @@
 import numpy as np 
 import nibabel as nib
-from scipy.ndimage import binary_opening, binary_erosion, binary_dilation
-import os
+from scipy.ndimage import binary_opening
 import time
 from utility_functions import *
 
@@ -43,9 +42,7 @@ def threshold_segmentation_of_bone_marrow(bone_array, threshold_up, threshold_do
 def opening_3D(bone_marrow_array_mask, iterations):
           
     kernel = np.ones((5, 5, 1), np.uint8)
-    eroded = binary_erosion(bone_marrow_array_mask, structure=kernel, iterations=iterations)
-    opened = binary_dilation(eroded, structure=kernel, iterations=iterations)
-    #opened = binary_opening(bone_marrow_array_mask, structure=kernel, iterations=iterations)
+    opened = binary_opening(bone_marrow_array_mask, structure=kernel, iterations=iterations)
     return opened
     
 
