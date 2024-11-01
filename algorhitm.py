@@ -1,41 +1,46 @@
 import numpy as np 
 import nibabel as nib
-from scipy.ndimage import binary_dilation, binary_erosion, binary_opening
+from scipy.ndimage import binary_opening
 import os
 import time
 from utility_functions import *
+OFFSET = 130
 
-image_path_base = os.path.dirname(os.path.abspath(__file__)) + '/input'
+image_path_base = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'input')
 
+
+#length is just for cleaning up the print to console at the end, serves no functional purpose
 length = len(image_path_base)
 
 
 list_directory = os.listdir(image_path_base)
-offset = 130
 # image_dir = ''
 # list_subdir = []
 
-for i in range(len(list_directory)):
-    image_dir = image_path_base + '/' + list_directory[i]
+for dir in list_directory:
+    image_dir = os.path.join(image_path_base, dir)
     print('New Directory: '+ image_dir)
     
     list_subdir = [d for d in os.listdir(image_dir) if 'segmentation' in d and '.csv' not in d]
-    for j in range(len(list_subdir)):
-        print('New Subdirectory: '+ list_subdir[j])
+    for subdir in list_subdir:
+        print('New Subdirectory: '+ subdir)
 
-        image_path = image_dir + '/' + list_subdir[j][:-13] + '.nii.gz'
-        image = nib.load(image_path)
-        image_array = image.get_fdata()
-        if np.max(np.shape(image_array)) != 512:
-            print('Slice size is not 512x512, skipping')
-            continue
-        else:
-            segmentation_list = os.listdir(image_dir+'/'+list_subdir[j])
-    
-            for k in range(len(segmentation_list)):
-                bone_mask_path = image_dir + '/' + list_subdir[j] + '/' + segmentation_list[k]
-                if '_marrow' not in bone_mask_path and '.nii.gz' in bone_mask_path:
-                    print("LFG: ", bone_mask_path)
-                    output_path = image_dir + '/' + list_subdir[j] + '/' + segmentation_list[k][:-7] + '_marrow_dynamic_' + str(offset) + '.nii.gz'
-                    full_pipeline(image_path, bone_mask_path, output_path, length, offset)
+        image_path = os.path.join(image_dir, subdir.replace('_segmentation','.nii.gz'))
+        print(image_path)
+        # image = nib.load(image_path)
+        image_array = nib.load(image_path).get_fdata()
+        
+        # if np.max(np.shape(image_array)) != 512:
+        #     print('Slice size is not 512x512, skipping')
+        #     continue
+        
+        segmentation_list = os.listdir(os.path.join(image_dir, subdir))
+        print(segmentation_list)
+        
+        for segmentation in segmentation_list:
+            bone_mask_path = os.path.join(image_dir, subdir, segmentation)
+            if '_marrow' not in segmentation and '.nii.gz' in bone_mask_path:
+                print("Processing: ", bone_mask_path)
+                output_path = os.path.join(image_dir , subdir , segmentation.replace('.nii.gz', '_marrow_dynamic_' + str(OFFSET) + '.nii.gz'))
+                full_pipeline(image_array, image_path, bone_mask_path, output_path, length, OFFSET)
 
