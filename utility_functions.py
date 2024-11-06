@@ -5,59 +5,72 @@ import time
 from utility_functions import *
 
 HEADER_KEYS = ['pixdim', 'xyzt_units', 'qform_code', 'sform_code', 'quatern_b', 'quatern_c', 'quatern_d', 'qoffset_x', 'qoffset_y', 'qoffset_z', 'srow_x', 'srow_y', 'srow_z']
-# def load_image_and_bone_mask(image_path, bone_mask_path):
-#     image = nib.load(image_path)
-#     image_array = image.get_fdata()
-#     bone_mask = nib.load(bone_mask_path)
-#     bone_mask_array = bone_mask.get_fdata()
-#     return image, bone_mask, image_array, bone_mask_array
 
+# Loading the bone mask as a nifti image and as an array
 def load_bone_mask(bone_mask_path):
-    bone_mask = nib.load(bone_mask_path)
+    bone_mask = nib.load(bone_mask_path)                #the nifti mask is necessary to retain the header information
     bone_mask_array = bone_mask.get_fdata()
     return bone_mask, bone_mask_array
 
+# Isolating the bone from the image, returning an array with 0 values outside the bone
 def isolate_bone_on_image(image_array, bone_mask_array):
     return image_array * bone_mask_array
 
-def obtain_upper_threshold(image_array, bone_mask_array, offset):
+# Obtaining the upper threshold for the bone marrow segmentation
+def obtain_upper_threshold(image_array, bone_mask_array, offset, mode):
     values = image_array[bone_mask_array==1]
-    if np.any(values) != 0:
-        fifth_percentile = np.percentile(values, 5)
-        threshold = fifth_percentile + offset
-        return threshold
-    return 0
+    #Check which thresholding mode is selected
+    match mode:
+        #For static thresholding, the offset is used as the threshold
+        case 'static':
+            return offset
+        
+        #For dynamic thresholding, the offset is applied to a known bone marrow value (the 5th percentile)
+        case 'dynamic':
+            if np.any(values) != 0:
+                fifth_percentile = np.percentile(values, 5)
+                threshold = fifth_percentile + offset
+                return threshold
+            return 0
 
+        #For average thresholding, the average of the 5th and 95th percentiles is used as the threshold, offset is not used
+        case 'average':
+            if np.any(values) != 0:
+                fifth_percentile = np.percentile(values, 5)
+                ninety_fifth_percentile = np.percentile(values, 95)
+                threshold = (fifth_percentile + ninety_fifth_percentile) / 2
+                return threshold
+            return 0
+
+# Thresholding the bone marrow using the obtained threshold, returning a binary mask
 def threshold_segmentation_of_bone_marrow(bone_array, threshold_up, threshold_down, bone_mask_array):
     bone_marrow_array_mask = np.where((bone_array < threshold_up) & (bone_array > threshold_down), 1, 0)*bone_mask_array
     return bone_marrow_array_mask
-# def threshold_segmentation_of_bone_marrow(bone_array, threshold_up, threshold_down, bone_mask_array):
-#     bone_marrow_array_mask = np.zeros(bone_array.shape)
-#     bone_marrow_array_mask[bone_array < threshold_up] = 1
-#     bone_marrow_array_mask[bone_array <= threshold_down] = 0
-#     bone_marrow_array_mask = bone_marrow_array_mask * bone_mask_array
-#     return bone_marrow_array_mask
 
-
+#Perform binary opening to get rid of small noise as well as soft tissue just outside of the cortical bone
 def opening_3D(bone_marrow_array_mask, iterations):
           
     kernel = np.ones((5, 5, 1), np.uint8)
     opened = binary_opening(bone_marrow_array_mask, structure=kernel, iterations=iterations)
     return opened
     
-
+# The segmented bone's header is inherited by the bone marrow mask
 def header_processing(bone_marrow_array_mask,bone_mask):
     nifti_mask = nib.Nifti1Image(bone_marrow_array_mask, affine=None, header=bone_mask.header)
-    
+    # This next step shouldn't be necessary, but it seems to prevent some unexpected failures
     for key in HEADER_KEYS:
         nifti_mask.header[key]=bone_mask.header[key]
  
     return nifti_mask
 
+#Saves a nifti image to a .nii.gz file
 def save_masks(connected_components, output_path):
     nib.save(connected_components, output_path)
 
-def full_pipeline(image_array, image_path, bone_mask_path, output_path, length, offset):
+#Full pipeline applies thresholding to find the bone marrow of a bone mask of specified path onto an image passed as a numpy array
+#There are 3 modes available: 'dynamic', 'static', 'average' with regard to obtaining the upper threshold
+
+def full_pipeline(image_array, bone_mask_path, output_path, length, offset, mode):
 
     t0 = time.time()
     bone_mask, bone_mask_array = load_bone_mask(bone_mask_path)
@@ -81,7 +94,7 @@ def full_pipeline(image_array, image_path, bone_mask_path, output_path, length, 
     print('Time to isolate bone on image: ', t5-t4)
 
     t6 = time.time()
-    upper_threshold = obtain_upper_threshold(image_array, bone_mask_array, offset)
+    upper_threshold = obtain_upper_threshold(image_array, bone_mask_array, offset, mode)
     t7 = time.time()
     print('Time to obtain upper threshold: ', t7-t6)
 
