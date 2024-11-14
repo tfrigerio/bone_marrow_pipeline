@@ -3,6 +3,8 @@ import nibabel as nib
 from scipy.ndimage import binary_opening
 import time
 from utility_functions import *
+import cupyx.scipy.ndimage
+import cupy
 
 HEADER_KEYS = ['pixdim', 'xyzt_units', 'qform_code', 'sform_code', 'quatern_b', 'quatern_c', 'quatern_d', 'qoffset_x', 'qoffset_y', 'qoffset_z', 'srow_x', 'srow_y', 'srow_z']
 
@@ -43,16 +45,27 @@ def obtain_upper_threshold(image_array, bone_mask_array, offset, mode):
             return 0
 
 # Thresholding the bone marrow using the obtained threshold, returning a binary mask
-def threshold_segmentation_of_bone_marrow(bone_array, threshold_up, threshold_down, bone_mask_array):
-    bone_marrow_array_mask = np.where((bone_array < threshold_up) & (bone_array > threshold_down), 1, 0)*bone_mask_array
-    return bone_marrow_array_mask
+def threshold_segmentation_of_bone_marrow(bone_array, threshold_up, threshold_down, bone_mask_array, opening):
+    if opening == 'scipy':
+        bone_marrow_array_mask = np.where((bone_array < threshold_up) & (bone_array > threshold_down), 1, 0)*bone_mask_array
+        return bone_marrow_array_mask
+    cupy_bone_array = cupy.asarray(bone_array)
+    cupy_bone_mask_array = cupy.asarray(bone_mask_array)
+    cupy_bone_marrow_array_mask = cupy.where((cupy_bone_array < threshold_up) & (cupy_bone_array > threshold_down), 1, 0)*cupy_bone_mask_array
+
+    return cupy.ndarray.get(cupy_bone_marrow_array_mask)
 
 #Perform binary opening to get rid of small noise as well as soft tissue just outside of the cortical bone
-def opening_3D(bone_marrow_array_mask, iterations):
+def opening_3D(bone_marrow_array_mask, iterations, opening):
+    if opening == 'scipy':
+        opened = binary_opening(bone_marrow_array_mask, iterations=iterations)
+        return opened
           
     kernel = np.ones((5, 5, 1), np.uint8)
-    opened = binary_opening(bone_marrow_array_mask, structure=kernel, iterations=iterations)
-    return opened
+    cupy_kernel = cupy.asarray(kernel)
+    cupy_array = cupy.asarray(bone_marrow_array_mask)
+    opened = cupyx.scipy.ndimage.binary_opening(cupy_array, structure=cupy_kernel, iterations=iterations)
+    return cupy.ndarray.get(opened)
     
 # The segmented bone's header is inherited by the bone marrow mask
 def header_processing(bone_marrow_array_mask,bone_mask):
@@ -70,7 +83,7 @@ def save_masks(connected_components, output_path):
 #Full pipeline applies thresholding to find the bone marrow of a bone mask of specified path onto an image passed as a numpy array
 #There are 3 modes available: 'dynamic', 'static', 'average' with regard to obtaining the upper threshold
 
-def full_pipeline(image_array, bone_mask_path, output_path, length, offset, mode):
+def full_pipeline(image_array, bone_mask_path, output_path, length, offset, mode, opening):
 
     t0 = time.time()
     bone_mask, bone_mask_array = load_bone_mask(bone_mask_path)
@@ -99,13 +112,13 @@ def full_pipeline(image_array, bone_mask_path, output_path, length, offset, mode
     print('Time to obtain upper threshold: ', t7-t6)
 
     t8 = time.time()
-    bone_marrow_array_mask = threshold_segmentation_of_bone_marrow(bone_array, upper_threshold, -100, bone_mask_array)
+    bone_marrow_array_mask = threshold_segmentation_of_bone_marrow(bone_array, upper_threshold, -100, bone_mask_array, opening)
     t9 = time.time()
     print('Time to threshold segmentation of bone marrow: ', t9-t8)
 
     t10 = time.time()
     if np.max(np.shape(image_array))>= 100 :
-        bone_marrow_array_mask = opening_3D(bone_marrow_array_mask, 1)
+        bone_marrow_array_mask = opening_3D(bone_marrow_array_mask, 1, opening)
     t11 = time.time()
     print('Time to open 3D: ', t11-t10)
 

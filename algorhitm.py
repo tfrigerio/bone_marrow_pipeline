@@ -5,12 +5,17 @@ import os
 import time
 from utility_functions import *
 
-OFFSET = 230
-MODE = 'static'
+OFFSET = 150
+OPENING = 'cuda'
+OPENING_LIST = ['cuda', 'scipy']
+MODE = 'dynamic'
 MODE_LIST = ['dynamic', 'static', 'average']
 start_time = time.time()
 if MODE not in MODE_LIST:
     print('Invalid mode, please select from: ', MODE_LIST)
+    exit()
+if OPENING not in OPENING_LIST:
+    print('Invalid opening, please select from: ', OPENING_LIST)
     exit()
 
 #The dataset has to be in a specific format, refer to README for more information
@@ -57,9 +62,11 @@ for dir in list_directory:
                         save_suffix = '_marrow_sub' + str(OFFSET)
                     case 'average':
                         save_suffix = '_marrow_dynamic_average'
+                if OPENING == 'cuda':
+                    save_suffix += '_cuda'
                 output_path = os.path.join(image_dir , subdir , segmentation.replace('.nii.gz', save_suffix + '.nii.gz'))
 
                 #Apply the full pipeline to the bone mask to obtain and save bone marrow
-                full_pipeline(image_array, bone_mask_path, output_path, length, OFFSET, MODE)
+                full_pipeline(image_array, bone_mask_path, output_path, length, OFFSET, MODE, OPENING)
 end_time = time.time()
 print('Total time: ', (end_time - start_time)/3600, ' hours')

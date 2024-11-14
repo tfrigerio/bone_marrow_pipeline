@@ -1,5 +1,7 @@
+# Bone marrow thresholding algorithm
 This repository contains the current thresholding algorithm to obtain bone marrow segmentation from a CT file and its bone_segmentations obtained using Totalsegmentator. 
 
+## Overview
 The script navigates the input directory tree, identifies the file and its masks and:
 - loads the CT scan and a bone mask
 - isolates the bone on the CT image (setting every other value to 0) 
@@ -7,6 +9,7 @@ The script navigates the input directory tree, identifies the file and its masks
 - thresholds to obtain bone marrow
 - performs morphological opening (erosion and dilation) to refine the segmentation.
 
+## Required File structure
 The input scan should be placed in a subdirectory along with a foler including its bone masks. This subdirectory should be inside of a directory named input/ 
 
 The naming convention should be:
@@ -14,7 +17,7 @@ The naming convention should be:
 - Name of segmentation folder in format CT_{filename}_segmentations/
 
 
-MODES:
+## MODES:
 
 Modes are the different ways of obtaining the upper threshold for bone marrow built into this algorithm. There are currently 3 available modes:
 - Static mode: The threshold is a fixed value specified by the user as the constant OFFSET, which is going to be applied to all bones
