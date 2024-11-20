@@ -65,8 +65,17 @@ for dir in list_directory:
                 if OPENING == 'cuda':
                     save_suffix += '_cuda'
                 output_path = os.path.join(image_dir , subdir , segmentation.replace('.nii.gz', save_suffix + '.nii.gz'))
-
+                if OPENING == 'cuda':
+                    try:
+                        #Apply the full pipeline to the bone mask to obtain and save bone marrow
+                        full_pipeline(image_array, bone_mask_path, output_path, length, OFFSET, MODE, OPENING)
+                    except Exception as e:
+                        print('Failed to process with gpu, trying cpu: ', bone_mask_path)
+                        opening = 'scipy'
+                        output_path = os.path.join(image_dir , subdir , segmentation.replace('.nii.gz', save_suffix + '_scipy.nii.gz'))
+                        full_pipeline(image_array, bone_mask_path, output_path, length, OFFSET, MODE, opening)
+                else:
                 #Apply the full pipeline to the bone mask to obtain and save bone marrow
-                full_pipeline(image_array, bone_mask_path, output_path, length, OFFSET, MODE, OPENING)
+                    full_pipeline(image_array, bone_mask_path, output_path, length, OFFSET, MODE, OPENING)
 end_time = time.time()
 print('Total time: ', (end_time - start_time)/3600, ' hours')

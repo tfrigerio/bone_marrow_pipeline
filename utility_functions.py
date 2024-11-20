@@ -2,7 +2,6 @@ import numpy as np
 import nibabel as nib
 from scipy.ndimage import binary_opening
 import time
-from utility_functions import *
 import cupyx.scipy.ndimage
 import cupy
 
@@ -98,6 +97,7 @@ def full_pipeline(image_array, bone_mask_path, output_path, length, offset, mode
             image_array = image_array[:, :, :, 0]
         else:
             raise ValueError('Image and mask have different shapes')
+    
     t3 = time.time()
     print('Time to check shapes: ', t3-t2)
 
